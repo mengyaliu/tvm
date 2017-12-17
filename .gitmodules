@@ -7,3 +7,6 @@
 [submodule "dlpack"]
 	path = dlpack
 	url = http://github.com/sidedish/dlpack
+[submodule "sophon-metainfo"]
+	path = sophon-metainfo
+	url = http://github.com/sidedish/sophon-metainfo
