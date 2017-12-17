@@ -10,7 +10,7 @@
 #ifndef _SOPHON_COMMON_H
 #define _SOPHON_COMMON_H
 
-#if TVM_CUDA_RUNTIME
+#if TVM_SOPHON_RUNTIME
 #include "../workspace_pool.h"
 #include <bm_runtime.h>
 #include <bm_memory.h>
