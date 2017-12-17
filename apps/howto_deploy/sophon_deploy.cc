@@ -12,7 +12,7 @@
 int main(void) {
   //TODO(wwcai): just run under current directory to find meta_info
   tvm::runtime::Module mod =
-      tvm::runtime::Module::LoadFromFile("../../tutorials/sophon/meta_info/resnet50/resnet50.tvm_meta.json");
+      tvm::runtime::Module::LoadFromFile("../../sophon-metainfo/resnet50/resnet50.tvm_meta.json");
   LOG(INFO) << "Verify dynamic loading from resnet50.tvm_meta.json";
 
   // Get the function from the module.
