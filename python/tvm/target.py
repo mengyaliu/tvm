@@ -111,6 +111,8 @@ class Target(object):
             # For now assume rocm schedule for opencl
             self.keys += ("rocm", "gpu")
             self.max_num_threads = 256
+        elif target_name in ("sophon", "bm168x"):
+            self.keys += ("sophon", "bm168x")
         elif target_name in ("metal",):
             self.keys += ("gpu",)
             self.max_num_threads = 256

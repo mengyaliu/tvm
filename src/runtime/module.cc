@@ -117,6 +117,8 @@ bool RuntimeEnabled(const std::string& target) {
     f_name = "device_api.opencl";
   } else if (target == "mtl" || target == "metal") {
     f_name = "device_api.metal";
+  } else if (target == "sophon" || target == "bm168x") {
+    f_name = "device_api.sophon";
   } else if (target == "stackvm") {
     f_name = "codegen.build_stackvm";
   } else if (target == "rpc") {

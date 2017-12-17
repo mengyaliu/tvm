@@ -20,6 +20,14 @@ void FunctionInfo::Save(dmlc::JSONWriter* writer) const {
   writer->WriteObjectKeyValue("name", name);
   writer->WriteObjectKeyValue("arg_types", sarg_types);
   writer->WriteObjectKeyValue("thread_axis_tags", thread_axis_tags);
+  writer->WriteObjectKeyValue("sophon_device_type", sophon_device_type);
+  writer->WriteObjectKeyValue("sophon_kernel", sophon_kernel);
+  writer->WriteObjectKeyValue("sophon_batch_num", sophon_batch_num);
+  writer->WriteObjectKeyValue("sophon_input_dsize", sophon_input_dsize);
+  writer->WriteObjectKeyValue("sophon_output_dsize", sophon_output_dsize);
+  writer->WriteObjectKeyValue("sophon_weight_bsize", sophon_weight_bsize);
+  writer->WriteObjectKeyValue("sophon_neuron_bsize", sophon_neuron_bsize);
+  writer->WriteObjectKeyValue("sophon_output_offset", sophon_output_offset);
   writer->EndObject();
 }
 
@@ -29,6 +37,14 @@ void FunctionInfo::Load(dmlc::JSONReader* reader) {
   helper.DeclareField("name", &name);
   helper.DeclareField("arg_types", &sarg_types);
   helper.DeclareField("thread_axis_tags", &thread_axis_tags);
+  helper.DeclareField("sophon_device_type", &sophon_device_type);
+  helper.DeclareField("sophon_kernel", &sophon_kernel);
+  helper.DeclareField("sophon_batch_num", &sophon_batch_num);
+  helper.DeclareField("sophon_input_dsize", &sophon_input_dsize);
+  helper.DeclareField("sophon_output_dsize", &sophon_output_dsize);
+  helper.DeclareField("sophon_weight_bsize", &sophon_weight_bsize);
+  helper.DeclareField("sophon_neuron_bsize", &sophon_neuron_bsize);
+  helper.DeclareField("sophon_output_offset", &sophon_output_offset);
   helper.ReadAllFields(reader);
   arg_types.resize(sarg_types.size());
   for (size_t i = 0; i < arg_types.size(); ++i) {
@@ -40,12 +56,28 @@ void FunctionInfo::Save(dmlc::Stream* writer) const {
   writer->Write(name);
   writer->Write(arg_types);
   writer->Write(thread_axis_tags);
+  writer->Write(sophon_device_type);
+  writer->Write(sophon_kernel);
+  writer->Write(sophon_batch_num);
+  writer->Write(sophon_input_dsize);
+  writer->Write(sophon_output_dsize);
+  writer->Write(sophon_weight_bsize);
+  writer->Write(sophon_neuron_bsize);
+  writer->Write(sophon_output_offset);
 }
 
 bool FunctionInfo::Load(dmlc::Stream* reader) {
   if (!reader->Read(&name)) return false;
   if (!reader->Read(&arg_types)) return false;
   if (!reader->Read(&thread_axis_tags)) return false;
+  if (!reader->Read(&sophon_device_type)) return false;
+  if (!reader->Read(&sophon_kernel)) return false;
+  if (!reader->Read(&sophon_batch_num)) return false;
+  if (!reader->Read(&sophon_input_dsize)) return false;
+  if (!reader->Read(&sophon_output_dsize)) return false;
+  if (!reader->Read(&sophon_weight_bsize)) return false;
+  if (!reader->Read(&sophon_neuron_bsize)) return false;
+  if (!reader->Read(&sophon_output_offset)) return false;
   return true;
 }
 
@@ -70,6 +102,15 @@ std::string GetMetaFilePath(const std::string& file_name) {
     return file_name.substr(0, pos) + ".tvm_meta.json";
   } else {
     return file_name + ".tvm_meta.json";
+  }
+}
+
+std::string GetKernelFilePath(const std::string& metafile_name, const std::string& file_name) {
+  size_t pos  = metafile_name.find_last_of("/");
+  if (pos != std::string::npos) {
+    return metafile_name.substr(0, pos) + "/" + file_name;
+  } else {
+    return metafile_name + "/" + file_name;
   }
 }
 

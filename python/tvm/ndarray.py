@@ -12,6 +12,7 @@ from ._ffi.ndarray import context, empty
 from ._ffi.ndarray import _set_class_ndarray
 from ._ffi.ndarray import register_extension, free_extension_handle
 
+
 class NDArray(NDArrayBase):
     """Lightweight NDArray class of TVM runtime.
 
@@ -57,6 +58,7 @@ def gpu(dev_id=0):
     """
     return TVMContext(2, dev_id)
 
+
 def rocm(dev_id=0):
     """Construct a ROCM device
 
@@ -89,6 +91,22 @@ def opencl(dev_id=0):
     return TVMContext(4, dev_id)
 
 
+def sophon(dev_id=0):
+    """Construct a BITMAIN Sophon device
+
+    Parameters
+    ----------
+    dev_id : int, optional
+        The integer device id
+
+    Returns
+    -------
+    ctx : TVMContext
+        The created context
+    """
+    return TVMContext(16, dev_id)
+
+
 def metal(dev_id=0):
     """Construct a metal device
 
@@ -119,6 +137,7 @@ def vpi(dev_id=0):
         The created context
     """
     return TVMContext(9, dev_id)
+
 
 def ext_dev(dev_id=0):
     """Construct a extension device

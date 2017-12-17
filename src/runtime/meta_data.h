@@ -22,6 +22,16 @@ struct FunctionInfo {
   std::vector<TVMType> arg_types;
   std::vector<std::string> thread_axis_tags;
 
+  //Sophon configs TODO(wwcai)
+  int sophon_device_type;
+  std::string sophon_kernel;
+  int sophon_batch_num;
+  uint64_t sophon_input_dsize; //d: dispatch
+  uint64_t sophon_output_dsize;
+  uint64_t sophon_weight_bsize; //b: broadcast
+  uint64_t sophon_neuron_bsize;
+  uint64_t sophon_output_offset;
+
   void Save(dmlc::JSONWriter *writer) const;
   void Load(dmlc::JSONReader *reader);
   void Save(dmlc::Stream *writer) const;

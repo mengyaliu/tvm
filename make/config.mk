@@ -29,11 +29,11 @@ ADD_CFLAGS =
 # Backend runtimes.
 #---------------------------------------------
 # whether enable CUDA during compile
-USE_CUDA = 0
+USE_CUDA = 1
 
 # add the path to CUDA library to link and compile flag
 # if you have already add them to environment variable.
-# CUDA_PATH = /usr/local/cuda
+CUDA_PATH = /usr/local/cuda
 
 # ROCM
 USE_ROCM = 0
@@ -43,6 +43,9 @@ USE_OPENCL = 0
 
 # whether enable Metal during compile
 USE_METAL = 0
+
+# whether enable Bitmain Sophon during compile
+USE_SOPHON = 1
 
 # Whether enable RPC during compile
 USE_RPC = 1
@@ -54,7 +57,7 @@ USE_GRAPH_RUNTIME = 1
 # Requires LLVM version >= 4.0
 # Set LLVM_CONFIG to your version, uncomment to build with llvm support
 #
-# LLVM_CONFIG = llvm-config
+LLVM_CONFIG = llvm-config-4.0
 
 #---------------------------------------------
 # Contrib optional libraries.

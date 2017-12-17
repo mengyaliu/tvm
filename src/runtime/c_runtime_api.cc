@@ -32,6 +32,7 @@ inline std::string DeviceName(int type) {
     case kDLVPI: return "vpi";
     case kDLROCM: return "rocm";
     case kExtDev: return "ext_dev";
+    case kDLSophon: return "sophon";
     default: LOG(FATAL) << "unknown type =" << type; return "Unknown";
   }
 }

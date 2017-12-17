@@ -26,6 +26,13 @@ std::string GetFileFormat(const std::string& file_name,
 std::string GetMetaFilePath(const std::string& file_name);
 
 /*!
+ * \brief Get kernel file path given meta file name and file name.
+ * \param metafile_name The name of the meta file.
+ * \param file_name The name of the file.
+ */
+std::string GetKernelFilePath(const std::string& metafile_name,
+                              const std::string& file_name);
+/*!
  * \brief Load binary file into a in-memory buffer.
  * \param file_name The name of the file.
  * \param data The data to be loaded.

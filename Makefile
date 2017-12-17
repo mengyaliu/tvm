@@ -52,6 +52,7 @@ METAL_SRC = $(wildcard src/runtime/metal/*.mm)
 CUDA_SRC = $(wildcard src/runtime/cuda/*.cc)
 ROCM_SRC = $(wildcard src/runtime/rocm/*.cc)
 OPENCL_SRC = $(wildcard src/runtime/opencl/*.cc)
+SOPHON_SRC = $(wildcard src/runtime/sophon/*.cc)
 RPC_SRC = $(wildcard src/runtime/rpc/*.cc)
 GRAPH_SRC = $(wildcard src/runtime/graph/*.cc)
 RUNTIME_SRC = $(wildcard src/runtime/*.cc)
@@ -63,6 +64,7 @@ METAL_OBJ = $(patsubst src/%.mm, build/%.o, $(METAL_SRC))
 CUDA_OBJ = $(patsubst src/%.cc, build/%.o, $(CUDA_SRC))
 ROCM_OBJ = $(patsubst src/%.cc, build/%.o, $(ROCM_SRC))
 OPENCL_OBJ = $(patsubst src/%.cc, build/%.o, $(OPENCL_SRC))
+SOPHON_OBJ = $(patsubst src/%.cc, build/%.o, $(SOPHON_SRC))
 RPC_OBJ = $(patsubst src/%.cc, build/%.o, $(RPC_SRC))
 GRAPH_OBJ = $(patsubst src/%.cc, build/%.o, $(GRAPH_SRC))
 CC_OBJ = $(patsubst src/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
@@ -120,6 +122,14 @@ ifeq ($(USE_METAL), 1)
 	FRAMEWORKS += -framework Metal -framework Foundation
 else
 	CFLAGS += -DTVM_METAL_RUNTIME=0
+endif
+
+ifeq ($(USE_SOPHON), 1)
+	CFLAGS += -DTVM_SOPHON_RUNTIME=1 -I/home/wwcai/workbench/bm168x/install/include
+	LDFLAGS += -L/home/wwcai/workbench/bm168x/install/lib -lbmtap
+	RUNTIME_DEP += $(SOPHON_OBJ)
+else
+	CFLAGS += -DTVM_SOPHON_RUNTIME=0
 endif
 
 ifeq ($(USE_RPC), 1)
