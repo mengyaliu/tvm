@@ -22,62 +22,80 @@ namespace runtime {
 
 // bmdnn helper
 void bmdnn_run_cmdbuf(bmdnn_handle_t handle,
-                        int batch_num,
-                        uint64_t input_dsize,
-                        uint64_t output_dsize,
-                        uint64_t weight_bsize,
-                        uint64_t neuron_bsize,
-                        uint64_t output_offset,
-                        TVMArray *input_tvm,
-                        TVMArray *output_tvm,
-                        TVMArray *weight_tvm,
-                        const std::string cmdbuf) {
-    // alloc neuron mem: broadcast
-    bmmem_device_t neuron_mem = bmmem_device_alloc_coeff(handle, neuron_bsize / sizeof(float));
-    uint64_t global_neuron_base = bmmem_device_get_device_addr(neuron_mem);
+                      int nodechip_num,
+                      int batch_num,
+                      uint64_t input_dsize,
+                      uint64_t output_dsize,
+                      uint64_t weight_bsize,
+                      uint64_t neuron_bsize,
+                      uint64_t output_offset,
+                      TVMArray *input_tvm,
+                      TVMArray *output_tvm,
+                      TVMArray *weight_tvm,
+                      const std::string cmdbuf) {
+  LOG(WARNING) << " nodechip_num = " << nodechip_num
+               << " batch_num = " << batch_num
+               << " input_dsize = " << input_dsize
+               << " output_dsize = " << output_dsize
+               << " weight_bsize = " << weight_bsize
+               << " neuron_bsize = " << neuron_bsize
+               << " output_offset = " << output_offset;
+  // check params
+  CHECK(handle);
+  CHECK(nodechip_num > 0);
+  CHECK(input_dsize % (batch_num * sizeof(float)) == 0);
+  CHECK(output_dsize % (batch_num * sizeof(float)) == 0);
 
-    // prealloc input mem: dispatch
-    bmmem_device_t input_mem = bmmem_device_prealloc_neuron(
-                                  handle,
-                                  global_neuron_base,
-                                  batch_num,
-                                  1, 1,
-                                  input_dsize / batch_num / sizeof(float),
-                                  false, false, 0, 0, 0);
+  // alloc neuron mem: broadcast
+  ASSERT(neuron_bsize >= output_offset + (output_dsize / nodechip_num));
+  ASSERT(neuron_bsize <= 0x400000000ULL); //TODO(wwcai): hardcode 16G
+  bmmem_device_t neuron_mem = bmmem_device_alloc_coeff(handle, neuron_bsize / sizeof(float));
+  uint64_t global_neuron_base = bmmem_device_get_device_addr(neuron_mem);
 
-    // prealloc output mem: dispatch
-    bmmem_device_t output_mem = bmmem_device_prealloc_neuron(
-                                  handle,
-                                  global_neuron_base + output_offset,
-                                  batch_num,
-                                  1, 1,
-                                  output_dsize / batch_num / sizeof(float),
-                                  false, false, 0, 0, 0);
+  // prealloc input mem: dispatch
+  bmmem_device_t input_mem = bmmem_device_prealloc_neuron(
+                                handle,
+                                global_neuron_base,
+                                batch_num,
+                                1, 1,
+                                input_dsize / batch_num / sizeof(float),
+                                false, false, 0, 0, 0);
 
-    const char *input = (const char*)input_tvm->data;
-    printf("---%s %d: input[0]=0x%x\n", __func__, __LINE__, input[0]);
-    bm_memcpy_s2d_address(handle, input_mem, const_cast<char*>(input));
+  // prealloc output mem: dispatch
+  bmmem_device_t output_mem = bmmem_device_prealloc_neuron(
+                                handle,
+                                global_neuron_base + output_offset,
+                                batch_num,
+                                1, 1,
+                                output_dsize / batch_num / sizeof(float),
+                                false, false, 0, 0, 0);
 
-    bmmem_device_t weight_mem = static_cast<bmmem_device_t>(weight_tvm->data);
-    uint64_t global_weight_base = bmmem_device_get_device_addr(weight_mem);
-    char *weight_mmm = (char*)malloc(weight_bsize);
-    bm_memcpy_d2s_address(handle, weight_mmm, weight_mem);
-    printf("---%s %d: weight[0]=0x%x\n", __func__, __LINE__, weight_mmm[0]);
+  const char *input = static_cast<const char*>(input_tvm->data);
+  CHECK(!bm_memcpy_s2d_address(handle, input_mem, const_cast<char*>(input)));
 
-    u32 cmdbuf_size = cmdbuf.size();
-    std::cout << "cmdbuf_size = " << cmdbuf_size << std::endl;
-    void *cmdbuf_data = (void*)&cmdbuf[0];
-    bmkernel_relocate_cmdbuf(handle, cmdbuf_data, cmdbuf_size, global_neuron_base, global_weight_base);
-    bmkernel_send_cmdbuf(handle, cmdbuf_data, cmdbuf_size);
+  bmmem_device_t weight_mem = static_cast<bmmem_device_t>(weight_tvm->data);
+  uint64_t global_weight_base = bmmem_device_get_device_addr(weight_mem);
 
-    char *output = (char*)output_tvm->data;
-    bm_memcpy_d2s_address(handle, output, output_mem);
-    printf("---%s %d: output[0]=0x%x\n", __func__, __LINE__, output[0]);
+  u32 cmdbuf_size = cmdbuf.size();
+  void *cmdbuf_data = (void*)&cmdbuf[0];
+  bmkernel_relocate_cmdbuf(handle, cmdbuf_data, cmdbuf_size, global_neuron_base, global_weight_base);
+  bmkernel_send_cmdbuf(handle, cmdbuf_data, cmdbuf_size);
 
-    bmmem_device_free(handle, neuron_mem);
-    bmmem_device_prefree(handle, input_mem);
-    bmmem_device_prefree(handle, output_mem);
+  char *output = (char*)output_tvm->data;
+  CHECK(!bm_memcpy_d2s_address(handle, output, output_mem));
+
+  bmmem_device_free(handle, neuron_mem);
+  bmmem_device_prefree(handle, input_mem);
+  bmmem_device_prefree(handle, output_mem);
+}
+
+int get_nodechip_num(int device_type) {
+  if(16802 == device_type) { //TODO(wwcai)
+    return 2;
+  } else {
+    return 1;
   }
+}
 
 // Module to support thread-safe multi-TPU execution.
 // The runtime will contain a per-device module table
@@ -89,34 +107,21 @@ class SophonModuleNode : public runtime::ModuleNode {
                           std::unordered_map<std::string, FunctionInfo> fmap)
     : data_(data), fmt_(fmt), fmap_(fmap) {
     //std::fill(module_.begin(), module_.end(), nullptr);
-
-    std::cout << __FILE__ <<  " "
-              << __func__ << " "
-              << __LINE__ << ":"
-              << " fmt = " << fmt
-              << std::endl;
     for(auto item : fmap) {
-      std::cout << " key =" << item.first
-                << " value = " << item.second.name
-                << std::endl;
     }
-
     for(auto f : fmap) {
+      LOG(WARNING) << "Loading"
+                   << " key =" << f.first
+                   << " name = " << f.second.name;
       std::string kernel_file = f.second.sophon_kernel;
       std::string kernel_data;
-      std::cout << "---" << __func__ << " " << __LINE__ << ": " << f.second.sophon_kernel<< std::endl;
       LoadBinaryFromFile(kernel_file, &kernel_data);
       kmap_.insert(std::pair<std::string, std::string>(f.first, kernel_data));
     }
   }
+
   // destructor
   ~SophonModuleNode() {
-//    for (size_t i = 0; i < module_.size(); ++i) {
-//      if (module_[i] != nullptr) {
-//        ROCM_CALL(hipSetDevice(static_cast<int>(i)));
-//        ROCM_DRIVER_CALL(hipModuleUnload(module_[i]));
-//      }
-//    }
   }
 
   const char* type_key() const final {
@@ -167,6 +172,7 @@ class SophonWrappedFunc {
             const std::vector<std::string>& thread_axis_tags,
             int device_type,
             std::string cmdbuf,
+            int nodechip_num,
             int batch_num,
             uint64_t input_dsize,
             uint64_t output_dsize,
@@ -180,20 +186,13 @@ class SophonWrappedFunc {
 
     // sophon configs
     cmdbuf_ = cmdbuf;
+    nodechip_num_ = nodechip_num;
     batch_num_ = batch_num;
     input_dsize_ = input_dsize;
     output_dsize_ = output_dsize;
     weight_bsize_ = weight_bsize;
     neuron_bsize_ = neuron_bsize;
     output_offset_ = output_offset;
-    std::cout << __FILE__ <<  " "
-              << __func__ << " "
-              << __LINE__ << " "
-              << " input_dsize_ = " << input_dsize_
-              << " output_dsize_ = " << output_dsize_
-              << " weight_bsize_ = " << weight_bsize_
-              << " neuron_bsize_ = " << neuron_bsize_
-              << std::endl;
   }
 
   // invoke the function with void arguments
@@ -201,11 +200,6 @@ class SophonWrappedFunc {
                   TVMRetValue* rv,
                   void* packed_args,
                   size_t packed_nbytes) const {
-    std::cout << __FILE__ <<  " "
-              << __func__ << " "
-              << __LINE__
-              << std::endl;
-
     TVMArray *input_tvm = (TVMArray*)args[0];
     TVMArray *weight_tvm = (TVMArray*)args[1];
     TVMArray *output_tvm = (TVMArray*)args[2];
@@ -213,8 +207,11 @@ class SophonWrappedFunc {
     bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
     CHECK(handle != nullptr);
 
-    bmdnn_run_cmdbuf(handle, batch_num_, input_dsize_, output_dsize_, weight_bsize_,
-                     neuron_bsize_, output_offset_, input_tvm, output_tvm, weight_tvm, cmdbuf_);
+    LOG(WARNING) << "run cmdbuf";
+    bmdnn_run_cmdbuf(handle, nodechip_num_, batch_num_,
+                     input_dsize_, output_dsize_, weight_bsize_,
+                     neuron_bsize_, output_offset_, input_tvm,
+                     output_tvm, weight_tvm, cmdbuf_);
   }
 
  private:
@@ -229,6 +226,7 @@ class SophonWrappedFunc {
 
   // sophon configs
   std::string cmdbuf_;
+  int nodechip_num_;
   int batch_num_;
   uint64_t input_dsize_;
   uint64_t output_dsize_;
@@ -253,11 +251,6 @@ class SophonMainWrappedFunc {
     // sophon configs
     fmap_ = fmap;
     kmap_ = kmap;
-
-    std::cout << __FILE__ <<  " "
-              << __func__ << " "
-              << __LINE__ << " "
-              << std::endl;
   }
 
   // invoke the function with void arguments
@@ -265,11 +258,6 @@ class SophonMainWrappedFunc {
                   TVMRetValue* rv,
                   void* packed_args,
                   size_t packed_nbytes) const {
-    std::cout << __FILE__ <<  " "
-              << __func__ << " "
-              << __LINE__
-              << std::endl;
-
     TVMArray *input_tvm = (TVMArray*)args[0];
     TVMArray *weight_tvm = (TVMArray*)args[1];
     TVMArray *output_tvm = (TVMArray*)args[2];
@@ -278,11 +266,9 @@ class SophonMainWrappedFunc {
     for(auto f : fmap_) {
       auto function_info = f.second;
       if(function_info.sophon_batch_num == batch_num) {
-        std::cout << __FILE__ <<  " "
-                  << __func__ << " "
-                  << __LINE__ << " "
-                  << "run batch_num = " << batch_num
-                  << std::endl;
+        LOG(WARNING) << "run function_info(" << function_info.name
+                     << ") batch_num = " << batch_num;
+        int nodechip_num = get_nodechip_num(function_info.sophon_device_type);
         uint64_t input_dsize = function_info.sophon_input_dsize;
         uint64_t output_dsize = function_info.sophon_output_dsize;
         uint64_t weight_bsize = function_info.sophon_weight_bsize;
@@ -293,7 +279,7 @@ class SophonMainWrappedFunc {
         bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
         CHECK(handle != nullptr);
 
-        bmdnn_run_cmdbuf(handle, batch_num,
+        bmdnn_run_cmdbuf(handle, nodechip_num, batch_num,
                          input_dsize, output_dsize,
                          weight_bsize, neuron_bsize,
                          output_offset, input_tvm,
@@ -323,11 +309,7 @@ PackedFunc SophonModuleNode::GetFunction(
       const std::string& name,
       const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
-  std::cout << __FILE__ <<  " "
-            << __func__ << " "
-            << __LINE__
-            << ": name = " << name
-            << std::endl;
+  LOG(WARNING) << ": name = " << name;
   //CHECK_NE(name, symbol::tvm_module_main)
   //    << "Device function do not have main"; //TODO(wwcai)
 
@@ -344,9 +326,10 @@ PackedFunc SophonModuleNode::GetFunction(
     auto kernel_it = kmap_.find(name);
     const std::string& kernel_data = kernel_it->second;
     SophonWrappedFunc f;
+    int nodechip_num = get_nodechip_num(info.sophon_device_type);
     f.Init(this, sptr_to_self, name,
            info.arg_types.size(), info.thread_axis_tags,
-           info.sophon_device_type, kernel_data,
+           info.sophon_device_type, kernel_data, nodechip_num,
            info.sophon_batch_num, info.sophon_input_dsize,
            info.sophon_output_dsize, info.sophon_weight_bsize,
            info.sophon_neuron_bsize, info.sophon_output_offset);

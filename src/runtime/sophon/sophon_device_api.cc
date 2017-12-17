@@ -24,38 +24,27 @@ class SophonDeviceAPI final : public DeviceAPI {
   }
 
   void SetDevice(TVMContext ctx) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-    //ROCM_CALL(hipSetDevice(ctx.device_id));
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
   }
 
   void GetAttr(TVMContext ctx, DeviceAttrKind kind, TVMRetValue* rv) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
   }
 
   void* AllocDataSpace(TVMContext ctx, size_t size, size_t alignment) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-
-//    ROCM_CALL(hipSetDevice(ctx.device_id));
-//    CHECK_EQ(256 % alignment, 0U)
-//        << "ROCM space is aligned at 256 bytes";
-//    ROCM_CALL(hipMalloc(&ret, size));
-
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__
-              << " size=" << size
-              << " alignment=" << alignment
-              << std::endl;
+    //TODO(wwcai): check ctx.device_id and stream
+    LOG(WARNING) << "size = " << size << " alignment = " << alignment;
+    CHECK_EQ(alignment % 32, 0U)
+        << "Sophon space is aligned at 32 bytes (support fp32 only now)";
     bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
     CHECK(handle != nullptr);
-    void *ret = bmmem_device_alloc_coeff(handle, size / sizeof(float));
-    printf("---%s %d: ret=0x%x\n", __func__, __LINE__, ret);
+    void *ret = bmmem_device_alloc_coeff(handle, size / sizeof(float)); //TODO(wwcai): support int8 and other formats
     return ret;
   }
 
   void FreeDataSpace(TVMContext ctx, void* ptr) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-//    ROCM_CALL(hipSetDevice(ctx.device_id));
-//    ROCM_CALL(hipFree(ptr));
-
     CHECK(ptr != nullptr);
     bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
     CHECK(handle != nullptr);
@@ -70,20 +59,18 @@ class SophonDeviceAPI final : public DeviceAPI {
                       TVMContext ctx_from,
                       TVMContext ctx_to,
                       TVMStreamHandle stream) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
     CHECK(stream == nullptr);
     bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
     CHECK(handle != nullptr);
+
     if (ctx_from.device_type == kDLSophon && ctx_to.device_type == kDLSophon) {
+      LOG(FATAL) << "Not support now.";
     } else if (ctx_from.device_type == kDLSophon && ctx_to.device_type == kDLCPU) {
-      std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
       void *to_cpu = static_cast<char*>(to) + to_offset;
       CHECK_EQ(from_offset, 0);
       bm_memcpy_d2s_address(handle, to_cpu, (bmmem_device_t)from); //TODO(wwcai): wrong
     } else if (ctx_from.device_type == kDLCPU && ctx_to.device_type == kDLSophon) {
-      std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
       void *from_cpu = const_cast<void*>(from);
-      printf("from_cpu[0]=0x%x\n", ((char*)from_cpu)[0]);
       from_cpu = static_cast<char*>(from_cpu) + from_offset;
       CHECK_EQ(to_offset, 0);
       bm_memcpy_s2d_address(handle, (bmmem_device_t)to, from_cpu);
@@ -93,32 +80,29 @@ class SophonDeviceAPI final : public DeviceAPI {
   }
 
   void StreamSync(TVMContext ctx, TVMStreamHandle stream) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-//    ROCM_CALL(hipSetDevice(ctx.device_id));
-//    ROCM_CALL(hipStreamSynchronize(static_cast<hipStream_t>(stream)));
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
   }
 
   void SetStream(TVMContext ctx, TVMStreamHandle stream) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-//    ROCMThreadEntry::ThreadLocal()
-//        ->stream = static_cast<hipStream_t>(stream);
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
   }
 
   void* AllocWorkspace(TVMContext ctx, size_t size) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-    //return ROCMThreadEntry::ThreadLocal()->pool.AllocWorkspace(ctx, size);
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
     return NULL;
   }
 
   void FreeWorkspace(TVMContext ctx, void* data) final {
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
-    //ROCMThreadEntry::ThreadLocal()->pool.FreeWorkspace(ctx, data);
+    //TODO(wwcai)
+    LOG(FATAL) << "Not support now.";
   }
 
   static const std::shared_ptr<SophonDeviceAPI>& Global() {
     static std::shared_ptr<SophonDeviceAPI> inst =
         std::make_shared<SophonDeviceAPI>();
-    std::cout << __FILE__ << " " << __func__ << " " << __LINE__ << std::endl;
     return inst;
   }
 };
