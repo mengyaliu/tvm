@@ -259,6 +259,8 @@ doc:
 install: lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX)
 	mkdir -p $(DESTDIR)$(PREFIX)/include/tvm/runtime
 	cp -R include/tvm/runtime/. $(DESTDIR)$(PREFIX)/include/tvm/runtime
+	cp -R $(DLPACK_PATH)/include/. $(DESTDIR)$(PREFIX)/include
+	cp -R $(DMLC_CORE_PATH)/include/. $(DESTDIR)$(PREFIX)/include
 	cp lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
 
 installdev: lib/libtvm.$(SHARED_LIBRARY_SUFFIX) lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) lib/libtvm.a
