@@ -22,7 +22,10 @@ void FunctionInfo::Save(dmlc::JSONWriter* writer) const {
   writer->WriteObjectKeyValue("thread_axis_tags", thread_axis_tags);
   writer->WriteObjectKeyValue("sophon_device_type", sophon_device_type);
   writer->WriteObjectKeyValue("sophon_kernel", sophon_kernel);
-  writer->WriteObjectKeyValue("sophon_batch_num", sophon_batch_num);
+  writer->WriteObjectKeyValue("sophon_input_n", sophon_input_n);
+  writer->WriteObjectKeyValue("sophon_input_c", sophon_input_c);
+  writer->WriteObjectKeyValue("sophon_input_h", sophon_input_h);
+  writer->WriteObjectKeyValue("sophon_input_w", sophon_input_w);
   writer->WriteObjectKeyValue("sophon_input_dsize", sophon_input_dsize);
   writer->WriteObjectKeyValue("sophon_output_dsize", sophon_output_dsize);
   writer->WriteObjectKeyValue("sophon_weight_bsize", sophon_weight_bsize);
@@ -39,7 +42,10 @@ void FunctionInfo::Load(dmlc::JSONReader* reader) {
   helper.DeclareField("thread_axis_tags", &thread_axis_tags);
   helper.DeclareField("sophon_device_type", &sophon_device_type);
   helper.DeclareField("sophon_kernel", &sophon_kernel);
-  helper.DeclareField("sophon_batch_num", &sophon_batch_num);
+  helper.DeclareField("sophon_input_n", &sophon_input_n);
+  helper.DeclareField("sophon_input_c", &sophon_input_c);
+  helper.DeclareField("sophon_input_h", &sophon_input_h);
+  helper.DeclareField("sophon_input_w", &sophon_input_w);
   helper.DeclareField("sophon_input_dsize", &sophon_input_dsize);
   helper.DeclareField("sophon_output_dsize", &sophon_output_dsize);
   helper.DeclareField("sophon_weight_bsize", &sophon_weight_bsize);
@@ -58,7 +64,10 @@ void FunctionInfo::Save(dmlc::Stream* writer) const {
   writer->Write(thread_axis_tags);
   writer->Write(sophon_device_type);
   writer->Write(sophon_kernel);
-  writer->Write(sophon_batch_num);
+  writer->Write(sophon_input_n);
+  writer->Write(sophon_input_c);
+  writer->Write(sophon_input_h);
+  writer->Write(sophon_input_w);
   writer->Write(sophon_input_dsize);
   writer->Write(sophon_output_dsize);
   writer->Write(sophon_weight_bsize);
@@ -72,7 +81,10 @@ bool FunctionInfo::Load(dmlc::Stream* reader) {
   if (!reader->Read(&thread_axis_tags)) return false;
   if (!reader->Read(&sophon_device_type)) return false;
   if (!reader->Read(&sophon_kernel)) return false;
-  if (!reader->Read(&sophon_batch_num)) return false;
+  if (!reader->Read(&sophon_input_n)) return false;
+  if (!reader->Read(&sophon_input_c)) return false;
+  if (!reader->Read(&sophon_input_h)) return false;
+  if (!reader->Read(&sophon_input_w)) return false;
   if (!reader->Read(&sophon_input_dsize)) return false;
   if (!reader->Read(&sophon_output_dsize)) return false;
   if (!reader->Read(&sophon_weight_bsize)) return false;

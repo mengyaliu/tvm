@@ -261,13 +261,24 @@ class SophonMainWrappedFunc {
     TVMArray *input_tvm = (TVMArray*)args[0];
     TVMArray *weight_tvm = (TVMArray*)args[1];
     TVMArray *output_tvm = (TVMArray*)args[2];
-    int batch_num = input_tvm->shape[0];
+    CHECK(input_tvm->ndim == 4);
+    int input_n = input_tvm->shape[0];
+    int input_c = input_tvm->shape[1];
+    int input_h = input_tvm->shape[2];
+    int input_w = input_tvm->shape[3];
 
     for(auto f : fmap_) {
       auto function_info = f.second;
-      if(function_info.sophon_batch_num == batch_num) {
+      if(function_info.sophon_input_n == input_n
+         && function_info.sophon_input_c == input_c
+         && function_info.sophon_input_h == input_h
+         && function_info.sophon_input_w == input_w) {
         LOG(WARNING) << "run function_info(" << function_info.name
-                     << ") batch_num = " << batch_num;
+                     << ") shape = (" << input_n
+                     << " " << input_c
+                     << " " << input_h
+                     << " " << input_w
+                     << ")";
         int nodechip_num = get_nodechip_num(function_info.sophon_device_type);
         uint64_t input_dsize = function_info.sophon_input_dsize;
         uint64_t output_dsize = function_info.sophon_output_dsize;
@@ -279,7 +290,7 @@ class SophonMainWrappedFunc {
         bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
         CHECK(handle != nullptr);
 
-        bmdnn_run_cmdbuf(handle, nodechip_num, batch_num,
+        bmdnn_run_cmdbuf(handle, nodechip_num, input_n,
                          input_dsize, output_dsize,
                          weight_bsize, neuron_bsize,
                          output_offset, input_tvm,
@@ -289,7 +300,12 @@ class SophonMainWrappedFunc {
       }
     }
 
-    LOG(FATAL) << "cannot find sophon kernel for batch_num = " << batch_num;
+    LOG(FATAL) << "cannot find sophon kernel for input"
+               << " shape = (" << input_n
+               << " " << input_c
+               << " " << input_h
+               << " " << input_w
+               << ")";
   }
 
  private:
@@ -330,7 +346,7 @@ PackedFunc SophonModuleNode::GetFunction(
     f.Init(this, sptr_to_self, name,
            info.arg_types.size(), info.thread_axis_tags,
            info.sophon_device_type, kernel_data, nodechip_num,
-           info.sophon_batch_num, info.sophon_input_dsize,
+           info.sophon_input_n, info.sophon_input_dsize,
            info.sophon_output_dsize, info.sophon_weight_bsize,
            info.sophon_neuron_bsize, info.sophon_output_offset);
     return PackFuncPackedArg(f, info.arg_types);

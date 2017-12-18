@@ -25,7 +25,10 @@ struct FunctionInfo {
   //Sophon configs TODO(wwcai)
   int sophon_device_type;
   std::string sophon_kernel;
-  int sophon_batch_num;
+  int sophon_input_n;
+  int sophon_input_c;
+  int sophon_input_h;
+  int sophon_input_w;
   uint64_t sophon_input_dsize; //d: dispatch
   uint64_t sophon_output_dsize;
   uint64_t sophon_weight_bsize; //b: broadcast
