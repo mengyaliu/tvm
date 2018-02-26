@@ -16,6 +16,7 @@
 #include <bm_memory.h>
 #include <bm_memory_common.h>
 #include <bmkernel_runtime.h>
+#include <host_util.h>
 
 namespace tvm {
 namespace runtime {

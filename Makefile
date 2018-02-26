@@ -125,8 +125,8 @@ else
 endif
 
 ifeq ($(USE_SOPHON), 1)
-	CFLAGS += -DTVM_SOPHON_RUNTIME=1 -I/home/wwcai/workbench/bm168x/install/include
-	LDFLAGS += -L/home/wwcai/workbench/bm168x/install/lib -lbmtap
+	CFLAGS += -DTVM_SOPHON_RUNTIME=1 -I$(BMTAP_TOP)/install/include
+	LDFLAGS += -L$(BMTAP_TOP)/install/lib -lbmtap
 	RUNTIME_DEP += $(SOPHON_OBJ)
 else
 	CFLAGS += -DTVM_SOPHON_RUNTIME=0

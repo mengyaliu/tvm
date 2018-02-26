@@ -6,8 +6,10 @@
 
 #if TVM_SOPHON_RUNTIME
 
+#include "stdlib.h"
 #include <tvm/runtime/registry.h>
 #include <vector>
+#include <fstream>
 #include <array>
 #include <string>
 #include <mutex>
@@ -16,6 +18,31 @@
 #include "../thread_storage_scope.h"
 #include "../meta_data.h"
 #include "../file_util.h"
+
+#define BM_DEBUG_BIT 0
+#define BM_DUMP_BIT 1
+#define BM_PROFILE_BIT 2
+
+static int bm_debug_on(int flag)
+{
+  return flag & (1 << BM_DEBUG_BIT);
+}
+
+static int bm_dump_on(int flag)
+{
+  return flag & (1 << BM_DUMP_BIT);
+}
+
+static void dump_data(char *data, int size)
+{
+  static int num = 0;
+  char name[64];
+  sprintf(name, "%d.bin", num++);
+  std::string arg = name;
+  std::fstream fp(arg, std::ios::out | std::ios::binary);
+  fp.write(data, size);
+  fp.close();
+}
 
 namespace tvm {
 namespace runtime {
@@ -32,14 +59,16 @@ void bmdnn_run_cmdbuf(bmdnn_handle_t handle,
                       TVMArray *input_tvm,
                       TVMArray *output_tvm,
                       TVMArray *weight_tvm,
-                      const std::string cmdbuf) {
-  LOG(WARNING) << " nodechip_num = " << nodechip_num
-               << " batch_num = " << batch_num
-               << " input_dsize = " << input_dsize
-               << " output_dsize = " << output_dsize
-               << " weight_bsize = " << weight_bsize
-               << " neuron_bsize = " << neuron_bsize
-               << " output_offset = " << output_offset;
+                      const std::string cmdbuf,
+                      int bm_flag) {
+  if (bm_debug_on(bm_flag))
+    LOG(WARNING) << " nodechip_num = " << nodechip_num
+                 << " batch_num = " << batch_num
+                 << " input_dsize = " << input_dsize
+                 << " output_dsize = " << output_dsize
+                 << " weight_bsize = " << weight_bsize
+                 << " neuron_bsize = " << neuron_bsize
+                 << " output_offset = " << output_offset;
   // check params
   CHECK(handle);
   CHECK(nodechip_num > 0);
@@ -109,10 +138,18 @@ class SophonModuleNode : public runtime::ModuleNode {
     //std::fill(module_.begin(), module_.end(), nullptr);
     for(auto item : fmap) {
     }
+    bm_flag_ = 0;
+    char *debug_env = getenv("BMIVA_DEBUG");
+    if (debug_env)
+      bm_flag_ |= (1 << BM_DEBUG_BIT);
+    char *dump_env = getenv("BMIVA_DUMP");
+    if (dump_env)
+      bm_flag_ |= (1 << BM_DUMP_BIT);
     for(auto f : fmap) {
-      LOG(WARNING) << "Loading"
-                   << " key =" << f.first
-                   << " name = " << f.second.name;
+      if (bm_debug_on(bm_flag_))
+        LOG(WARNING) << "Loading"
+                     << " key =" << f.first
+                     << " name = " << f.second.name;
       std::string kernel_file = f.second.sophon_kernel;
       std::string kernel_data;
       LoadBinaryFromFile(kernel_file, &kernel_data);
@@ -159,6 +196,8 @@ class SophonModuleNode : public runtime::ModuleNode {
   std::unordered_map<std::string, std::string> kmap_;
   // internal mutex when updating the module
   std::mutex mutex_;
+  // log lag
+  int bm_flag_;
 };
 
 // a wrapped function class to get packed func
@@ -178,11 +217,13 @@ class SophonWrappedFunc {
             uint64_t output_dsize,
             uint64_t weight_bsize,
             uint64_t neuron_bsize,
-            uint64_t output_offset) {
+            uint64_t output_offset,
+            int bm_flag) {
     m_ = m;
     sptr_ = sptr;
     func_name_ = func_name;
     thread_axis_cfg_.Init(num_void_args, thread_axis_tags);
+    bm_flag_ = bm_flag;
 
     // sophon configs
     cmdbuf_ = cmdbuf;
@@ -207,11 +248,12 @@ class SophonWrappedFunc {
     bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
     CHECK(handle != nullptr);
 
-    LOG(WARNING) << "run cmdbuf";
+    if (bm_debug_on(bm_flag_))
+      LOG(WARNING) << "run cmdbuf";
     bmdnn_run_cmdbuf(handle, nodechip_num_, batch_num_,
                      input_dsize_, output_dsize_, weight_bsize_,
                      neuron_bsize_, output_offset_, input_tvm,
-                     output_tvm, weight_tvm, cmdbuf_);
+                     output_tvm, weight_tvm, cmdbuf_, bm_flag_);
   }
 
  private:
@@ -233,6 +275,7 @@ class SophonWrappedFunc {
   uint64_t weight_bsize_;
   uint64_t neuron_bsize_;
   uint64_t output_offset_;
+  int bm_flag_;
 };
 
 // a wrapped function class to get packed func by batch_num
@@ -243,10 +286,12 @@ class SophonMainWrappedFunc {
             std::shared_ptr<ModuleNode> sptr,
             const std::string& func_name,
             std::unordered_map<std::string, FunctionInfo>& fmap,
-            std::unordered_map<std::string, std::string>& kmap) {
+            std::unordered_map<std::string, std::string>& kmap,
+            int bm_flag) {
     m_ = m;
     sptr_ = sptr;
     func_name_ = func_name;
+    bm_flag_ = bm_flag;
 
     // sophon configs
     fmap_ = fmap;
@@ -272,13 +317,15 @@ class SophonMainWrappedFunc {
       if(function_info.sophon_input_n == input_n
          && function_info.sophon_input_c == input_c
          && function_info.sophon_input_h == input_h
-         && function_info.sophon_input_w == input_w) {
-        LOG(WARNING) << "run function_info(" << function_info.name
-                     << ") shape = (" << input_n
-                     << " " << input_c
-                     << " " << input_h
-                     << " " << input_w
-                     << ")";
+         && function_info.sophon_input_w == input_w
+         && get_nodechip_num(function_info.sophon_device_type) == NODECHIP_NUM) {
+        if (bm_debug_on(bm_flag_))
+          LOG(WARNING) << "run function_info(" << function_info.name
+                       << ") shape = (" << input_n
+                       << " " << input_c
+                       << " " << input_h
+                       << " " << input_w
+                       << ")";
         int nodechip_num = get_nodechip_num(function_info.sophon_device_type);
         uint64_t input_dsize = function_info.sophon_input_dsize;
         uint64_t output_dsize = function_info.sophon_output_dsize;
@@ -290,12 +337,16 @@ class SophonMainWrappedFunc {
         bmdnn_handle_t handle = SophonThreadEntry::ThreadLocal()->stream;
         CHECK(handle != nullptr);
 
+        if (bm_dump_on(bm_flag_))
+          dump_data((char*)input_tvm->data, input_dsize);
         bmdnn_run_cmdbuf(handle, nodechip_num, input_n,
                          input_dsize, output_dsize,
                          weight_bsize, neuron_bsize,
                          output_offset, input_tvm,
                          output_tvm, weight_tvm,
-                         kernel_it->second);
+                         kernel_it->second, bm_flag_);
+        if (bm_dump_on(bm_flag_))
+          dump_data((char*)output_tvm->data, output_dsize);
         return;
       }
     }
@@ -319,13 +370,16 @@ class SophonMainWrappedFunc {
   // sophon configs
   std::unordered_map<std::string, FunctionInfo> fmap_;
   std::unordered_map<std::string, std::string> kmap_;
+
+  int bm_flag_;
 };
 
 PackedFunc SophonModuleNode::GetFunction(
       const std::string& name,
       const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
-  LOG(WARNING) << ": name = " << name;
+  if (bm_debug_on(bm_flag_))
+    LOG(WARNING) << ": name = " << name;
   //CHECK_NE(name, symbol::tvm_module_main)
   //    << "Device function do not have main"; //TODO(wwcai)
 
@@ -333,7 +387,7 @@ PackedFunc SophonModuleNode::GetFunction(
     SophonMainWrappedFunc f;
     auto it = fmap_.begin();
     const FunctionInfo& info = it->second; //TODO(wwcai): trick
-    f.Init(this, sptr_to_self, name, fmap_, kmap_);
+    f.Init(this, sptr_to_self, name, fmap_, kmap_, bm_flag_);
     return PackFuncPackedArg(f, info.arg_types);
   } else {
     auto it = fmap_.find(name);
@@ -348,7 +402,7 @@ PackedFunc SophonModuleNode::GetFunction(
            info.sophon_device_type, kernel_data, nodechip_num,
            info.sophon_input_n, info.sophon_input_dsize,
            info.sophon_output_dsize, info.sophon_weight_bsize,
-           info.sophon_neuron_bsize, info.sophon_output_offset);
+           info.sophon_neuron_bsize, info.sophon_output_offset, bm_flag_);
     return PackFuncPackedArg(f, info.arg_types);
   }
 }
